@@ -15,7 +15,7 @@ public class DbService : IDbService
         _context = context;
     }
 
-    public async Task<int> InsertPrescription(PrescriptionDto prescription, CancellationToken cancellationToken)
+    public async Task<int> InsertPrescription(int doctorId ,PrescriptionDto prescription, CancellationToken cancellationToken)
     {
         if (prescription.Medicaments.Count > 10)
             throw new BadRequestException("Too many medicaments");
@@ -27,9 +27,10 @@ public class DbService : IDbService
             var checkM = _context.Medicaments.Any(m => m.IdMedicament == medicament.IdMedicament);
 
             if (!checkM)
-                throw new NotFoundException($"Medicament {medicament.Name} not found");
+                throw new NotFoundException($"Medicament {medicament.IdMedicament} not found");
+        }
 
-            var chechP = _context.Patients.Any(p => p.IdPatient == prescription.Patient.IdPatient);
+        var chechP = _context.Patients.Any(p => p.IdPatient == prescription.Patient.IdPatient);
 
             if (!chechP)
             {
@@ -43,14 +44,32 @@ public class DbService : IDbService
                 await _context.Patients.AddAsync(pat, cancellationToken);
             }
             
+            var newId = _context.Prescriptions.Max(e => e.IdPrescription) + 1;
+
+            var newPrescription = new Prescription
+            {
+                IdPrescription = newId,
+                Date = prescription.Date,
+                DueDate = prescription.DueDate,
+                IdPatient = prescription.Patient.IdPatient,
+                IdDoctor = doctorId
+            };
             
-            
-            // await _context.Prescriptions.AddAsync()
+            await _context.Prescriptions.AddAsync(newPrescription, cancellationToken);
+
+            foreach (var medicament in prescription.Medicaments)
+            {
+                var tmpPresMed = new Prescription_Medicament
+                {
+                    IdMedicament = medicament.IdMedicament,
+                    IdPrescription = newId,
+                    Dose = medicament.Dose,
+                    Details = medicament.Description
+                };
+                await _context.Prescription_Medicaments.AddAsync(tmpPresMed, cancellationToken);
+            }
             
             await _context.SaveChangesAsync(cancellationToken);
-        }
-
-        // throw new NotImplementedException();
         return 0;
     }
 }

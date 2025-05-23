@@ -17,14 +17,14 @@ namespace APBD25_CW11.Controller
             _dbService = dbService;
         }
 
-        [HttpPost]
-        public async Task<IActionResult> Post([FromBody] PrescriptionDto prescription, CancellationToken cancellationToken)
+        [HttpPost("new/{doctorId}")]
+        public async Task<IActionResult> Post(int doctorId,[FromBody] PrescriptionDto prescription, CancellationToken cancellationToken)
         {
 
             try
             {
 
-                var resp = await _dbService.InsertPrescription(prescription, cancellationToken);
+                var resp = await _dbService.InsertPrescription(doctorId, prescription, cancellationToken);
             }
             catch (NotFoundException ex)
             {
@@ -37,6 +37,10 @@ namespace APBD25_CW11.Controller
             catch (ConflictException ex)
             {
                 return Conflict(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                return Problem("Unexpected error occured", statusCode: 500);
             }
             return Ok();
         }

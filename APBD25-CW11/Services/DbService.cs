@@ -2,6 +2,7 @@
 using APBD25_CW11.DTO;
 using APBD25_CW11.Exceptions;
 using APBD25_CW11.Models;
+using Microsoft.Build.Evaluation;
 using Microsoft.EntityFrameworkCore;
 
 namespace APBD25_CW11.Services;
@@ -15,7 +16,8 @@ public class DbService : IDbService
         _context = context;
     }
 
-    public async Task<int> InsertPrescription(int doctorId ,PrescriptionDto prescription, CancellationToken cancellationToken)
+    public async Task<int> InsertPrescription(int doctorId, PrescriptionDto prescription,
+        CancellationToken cancellationToken)
     {
         if (prescription.Medicaments.Count > 10)
             throw new BadRequestException("Too many medicaments");
@@ -32,44 +34,84 @@ public class DbService : IDbService
 
         var chechP = _context.Patients.Any(p => p.IdPatient == prescription.Patient.IdPatient);
 
-            if (!chechP)
+        if (!chechP)
+        {
+            var pat = new Patient
             {
-                var pat = new Patient
-                {
-                    IdPatient = prescription.Patient.IdPatient,
-                    Birthdate = prescription.Patient.Birthdate,
-                    FirstName = prescription.Patient.FirstName,
-                    LastName = prescription.Patient.LastName,
-                };
-                await _context.Patients.AddAsync(pat, cancellationToken);
-            }
-            
-            var newId = _context.Prescriptions.Max(e => e.IdPrescription) + 1;
-
-            var newPrescription = new Prescription
-            {
-                IdPrescription = newId,
-                Date = prescription.Date,
-                DueDate = prescription.DueDate,
                 IdPatient = prescription.Patient.IdPatient,
-                IdDoctor = doctorId
+                Birthdate = prescription.Patient.Birthdate,
+                FirstName = prescription.Patient.FirstName,
+                LastName = prescription.Patient.LastName,
             };
-            
-            await _context.Prescriptions.AddAsync(newPrescription, cancellationToken);
+            await _context.Patients.AddAsync(pat, cancellationToken);
+        }
 
-            foreach (var medicament in prescription.Medicaments)
+        var newId = _context.Prescriptions.Max(e => e.IdPrescription) + 1;
+
+        var newPrescription = new Prescription
+        {
+            IdPrescription = newId,
+            Date = prescription.Date,
+            DueDate = prescription.DueDate,
+            IdPatient = prescription.Patient.IdPatient,
+            IdDoctor = doctorId
+        };
+
+        await _context.Prescriptions.AddAsync(newPrescription, cancellationToken);
+
+        foreach (var medicament in prescription.Medicaments)
+        {
+            var tmpPresMed = new Prescription_Medicament
             {
-                var tmpPresMed = new Prescription_Medicament
-                {
-                    IdMedicament = medicament.IdMedicament,
-                    IdPrescription = newId,
-                    Dose = medicament.Dose,
-                    Details = medicament.Description
-                };
-                await _context.Prescription_Medicaments.AddAsync(tmpPresMed, cancellationToken);
-            }
-            
-            await _context.SaveChangesAsync(cancellationToken);
+                IdMedicament = medicament.IdMedicament,
+                IdPrescription = newId,
+                Dose = medicament.Dose,
+                Details = medicament.Description
+            };
+            await _context.Prescription_Medicaments.AddAsync(tmpPresMed, cancellationToken);
+        }
+
+        await _context.SaveChangesAsync(cancellationToken);
         return 0;
+    }
+
+    public async Task<ReturnDto> getPatient(int patientId, CancellationToken cancellationToken)
+    {
+        var check = _context.Patients.Any(p => p.IdPatient == patientId);
+
+        if (!check)
+            throw new NotFoundException($"Patient {patientId} not found");
+        
+        return await _context.Patients
+            .Where(p => p.IdPatient == patientId)
+            .Include(p => p.Prescriptions)
+            .ThenInclude(p => p.Doctor)
+            .Include(p => p.Prescriptions)
+            .ThenInclude(p => p.Prescription_Medicaments)
+            .ThenInclude(m => m.Medicament).Select(p => new ReturnDto
+            {
+                IdPatient = p.IdPatient,
+                FirstName = p.FirstName,
+                LastName = p.LastName,
+                Birthdate = p.Birthdate,
+                prescriptions = p.Prescriptions.Select(pr => new PrescriptionReturnDto()
+                {
+                    IdPrescription = pr.IdPrescription,
+                    Date = pr.Date,
+                    DueDate = pr.DueDate,
+                    Medicaments = pr.Prescription_Medicaments.Select(pm => new MedicamentReturnDto
+                    {
+                        IdMedicament = pm.IdMedicament,
+                        Name = pm.Medicament.Name,
+                        Dose = pm.Dose,
+                        Description = pm.Details
+                    }).ToList(),
+                    Doctor = new DoctorReturnDto
+                    {
+                        IdDoctor = pr.Doctor.IdDoctor,
+                        Firstname = pr.Doctor.FirstName,
+                    }
+                }).OrderBy(pr => pr.DueDate).ToList()
+            }).FirstAsync(cancellationToken);
     }
 }

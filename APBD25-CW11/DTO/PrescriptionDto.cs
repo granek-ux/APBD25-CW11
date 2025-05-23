@@ -16,28 +16,3 @@ public class PrescriptionDto
     
     
 }
-
-public class PatientDto
-{
-    [Required] 
-    public int IdPatient { get; set; }
-    [Required]
-    [MaxLength(100)]
-    public string FirstName { get; set; }
-    [Required] 
-    [MaxLength(100)]
-    public string LastName { get; set; }
-    [Required] 
-    public DateTime Birthdate { get; set; }
-}
-
-public class MedicamentDto
-{
-    [Required] 
-    public int IdMedicament { get; set; }
-    [Required]
-    public int Dose { get; set; }
-    [Required] 
-    [MaxLength(100)]
-    public string Description { get; set; }
-}

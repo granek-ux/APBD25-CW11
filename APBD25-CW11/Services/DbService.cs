@@ -77,7 +77,7 @@ public class DbService : IDbService
 
     public async Task<ReturnDto> getPatient(int patientId, CancellationToken cancellationToken)
     {
-        var check = _context.Patients.Any(p => p.IdPatient == patientId);
+        var check =await _context.Patients.AnyAsync(p => p.IdPatient == patientId, cancellationToken);
 
         if (!check)
             throw new NotFoundException($"Patient {patientId} not found");

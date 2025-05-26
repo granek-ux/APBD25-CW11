@@ -23,7 +23,6 @@ namespace APBD25_CW11.Controller
 
             try
             {
-
                 var resp = await _dbService.InsertPrescription(doctorId, prescription, cancellationToken);
             }
             catch (NotFoundException ex)
